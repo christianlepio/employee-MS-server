@@ -7,7 +7,7 @@ const path = require('path')
 // ^ begin with,
 // $ ends with,
 // | or
-router.route('^/$|/index(.html)?', (req, res) => {
+router.get('^/$|/index(.html)?', (req, res) => {
     res.sendFile(path.join(__dirname, '..', 'views', 'index.html'))
 })
 
