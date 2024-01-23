@@ -43,6 +43,9 @@ app.use('/', express.static(path.join(__dirname, 'public')))
 // requesting for server index page
 app.use('/', require('./routes/root'))
 
+// route endpoint for requesting user
+app.use('/users', require('./routes/userRoutes'))
+
 // catch 404 page note found
 app.all('*', (req, res) => {
     res.status(404) // set to 404
