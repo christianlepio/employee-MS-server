@@ -11,9 +11,9 @@ router.use(verifyJWT)
 
 // this is the index route of '/users' route
 router.route('/')
-    .get() // read all users
-    .post() // create new user
-    .patch() // update user
-    .delete() // delete user
+    .get(usersController.getAllUsers) // read all users
+    .post(usersController.createNewUser) // create new user
+    .patch(usersController.updateUser) // update user
+    .delete(usersController.deleteUser) // delete user
 
 module.exports = router
