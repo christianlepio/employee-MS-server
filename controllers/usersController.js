@@ -89,7 +89,22 @@ const updateUser = async (req, res) => {
 // @route DELETE /users
 // @access Private
 const deleteUser = async (req, res) => {
+    const { id } = req.body
 
+    if (!id) {
+        return res.status(400).json({ message: 'Id property is missing!' }) // 400 = bad request
+    }
+
+    const user = await User.findById(id).exec()
+    if (!user) {
+        return res.status(400).json({ message: 'User does not exist in the database!' }) // 400 = bad request
+    }
+
+    const result = await user.deleteOne()
+
+    const reply = `Username: ${user.username} with ID: ${user._id} has been deleted!`
+
+    res.json(reply)
 }
 
 module.exports = {
