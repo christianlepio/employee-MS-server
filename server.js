@@ -43,6 +43,9 @@ app.use('/', express.static(path.join(__dirname, 'public')))
 // requesting for server index page
 app.use('/', require('./routes/root'))
 
+// route endpoint for login (auth route)
+app.use('/auth', require('./routes/authRoutes'))
+
 // route endpoint for requesting user
 app.use('/users', require('./routes/userRoutes'))
 
