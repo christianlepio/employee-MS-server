@@ -79,14 +79,56 @@ const login = async (req, res) => {
 // @access Public - because access token has expiration
 // this function will issued new access token if the refresh token still not expired
 const refresh = async (req, res) => {
+    const cookies = req.cookies
 
+    if (!cookies?.jwt) return res.status(401).json({ message: 'Unauthorized!' }) // 401 = unauthorized
+
+    const refreshToken = cookies.jwt
+
+    jwt.verify(
+        refreshToken, 
+        process.env.REFRESH_TOKEN_SECRET, 
+        async (err, decoded) => {
+            if (err) return res.status(403).json({ message: 'Forbidden!' }) // 403 = forbidden
+
+            const foundUser = await User.findOne({ username: decoded.username })
+
+            if (!foundUser) return res.status(401).json({ message: 'Unauthorized!' }) // 401 = unauthorized
+
+            const accessToken = jwt.sign(
+                {
+                    'UserInfo': {
+                        'username': foundUser.username,
+                        'firstName': foundUser.firstName, 
+                        'lastName': foundUser.lastName, 
+                        'roles': foundUser.roles
+                    }
+                }, 
+                process.env.ACCESS_TOKEN_SECRET, 
+                { expiresIn: '20s' }
+            )
+
+            res.json({ accessToken })
+        }
+    )
 }
 
 // @desc logout
 // @route POST /auth/logout 
 // @access Public - clear cookie if exists
 const logout = async (req, res) => {
+    const cookies = req.cookies
 
+    if (!cookies?.jwt) return res.sendStatus(204) // success but no content
+
+    res.clearCookie('jwt', { 
+        httpOnly: true, // accessible only by web server 
+        secure: true, // https 
+        sameSite: 'None', // cross-site cookie
+        maxAge: 1 * 24 * 60 * 60 * 1000 // cookie expiry: set to match RT 
+    })
+
+    res.json({ message: 'Logout success' })
 }
 
 module.exports = {
