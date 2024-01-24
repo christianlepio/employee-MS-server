@@ -6,7 +6,72 @@ const jwt = require('jsonwebtoken')
 // @route POST /auth 
 // @access Public 
 const login = async (req, res) => {
+    const cookies = req.cookies
+    const { username, password } = req.body
 
+    if (!username || !password) {
+        return res.status(400).json({ message: 'All fields are required!' }) // 400 = bad request
+    }
+
+    const foundUser = await User.findOne({ username }).exec()
+
+    if (!foundUser || !foundUser.active) {
+        return res.status(401).json({ message: 'Username does not exist or is not active!' }) // 401 = unauthorized
+    }
+
+    const match = await bcrypt.compare(password, foundUser.password)
+    if (!match) return res.status(401).json({ message: 'Incorrect password!' }) // 401 = unauthorized
+
+    const accessToken = jwt.sign(
+        {
+            'UserInfo': {
+                'username': foundUser.username,
+                'firstName': foundUser.firstName, 
+                'lastName': foundUser.lastName, 
+                'roles': foundUser.roles
+            }
+        }, 
+        process.env.ACCESS_TOKEN_SECRET, 
+        { expiresIn: '20s' }
+    )
+
+    const newRefreshToken = jwt.sign(
+        { 'username': foundUser.username }, 
+        process.env.REFRESH_TOKEN_SECRET, 
+        { expiresIn: '1d' }
+    )
+
+    let newRefreshTokenArray = !cookies?.jwt 
+        ? foundUser.refreshToken 
+        : foundUser.refreshToken.filter(rt => rt !== cookies.jwt)
+
+    if (cookies?.jwt) {
+        const refreshToken = cookies.jwt
+        const foundToken = await User.findOne({ refreshToken }).exec()
+
+        if (!foundToken) {
+            newRefreshTokenArray = []
+        }
+
+        res.clearCookie('jwt', { 
+            httpOnly: true, // accessible only by web server 
+            secure: true, // https 
+            sameSite: 'None', // cross-site cookie
+            maxAge: 1 * 24 * 60 * 60 * 1000 // cookie expiry: set to match RT 
+        })
+    }
+
+    foundUser.refreshToken = [...newRefreshTokenArray, newRefreshToken]
+    const result = await foundUser.save()
+
+    res.cookie('jwt', newRefreshToken, {
+        httpOnly: true, // accessible only by web server 
+        secure: true, // https 
+        sameSite: 'None', // cross-site cookie
+        maxAge: 1 * 24 * 60 * 60 * 1000 // cookie expiry: set to match RT 
+    })
+
+    res.json({ accessToken })
 }
 
 // @desc get refesh token 
