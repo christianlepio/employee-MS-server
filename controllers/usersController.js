@@ -6,7 +6,7 @@ const bcrypt = require('bcrypt')
 // @route GET /users
 // @access Private
 const getAllUsers = async (req, res) => {
-    const users = await User.find().select('-password').lean()
+    const users = await User.find().select('-password -refreshToken').lean()
 
     if (!users?.length) {
         return res.status(400).json({ message: 'No Users found!' }) // 400 = bad request
