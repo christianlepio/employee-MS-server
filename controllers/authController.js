@@ -173,14 +173,33 @@ const logout = async (req, res) => {
 
     if (!cookies?.jwt) return res.sendStatus(204) // success but no content
 
-    res.clearCookie('jwt', { 
-        httpOnly: true, // accessible only by web server 
-        secure: true, // https 
-        sameSite: 'None', // cross-site cookie
-        maxAge: 1 * 24 * 60 * 60 * 1000 // cookie expiry: set to match RT 
-    })
+    const refreshToken = cookies.jwt
 
-    res.json({ message: 'Logout success!' })
+    const foundUser = await User.findOne({ refreshToken }).exec()
+
+    if (!foundUser) {
+        res.clearCookie('jwt', { 
+            httpOnly: true, // accessible only by web server 
+            secure: true, // https 
+            sameSite: 'None', // cross-site cookie
+            maxAge: 1 * 24 * 60 * 60 * 1000 // cookie expiry: set to match RT 
+        })
+
+        return res.sendStatus(204) // success but no content
+    } else {
+        foundUser.refreshToken = foundUser.refreshToken.filter(rt => rt !== refreshToken)
+
+        const result = await foundUser.save()
+
+        res.clearCookie('jwt', { 
+            httpOnly: true, // accessible only by web server 
+            secure: true, // https 
+            sameSite: 'None', // cross-site cookie
+            maxAge: 1 * 24 * 60 * 60 * 1000 // cookie expiry: set to match RT 
+        })
+    
+        res.json({ message: 'Logout success!' })
+    }
 }
 
 module.exports = {
