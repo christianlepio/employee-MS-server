@@ -85,32 +85,84 @@ const refresh = async (req, res) => {
 
     const refreshToken = cookies.jwt
 
-    jwt.verify(
-        refreshToken, 
-        process.env.REFRESH_TOKEN_SECRET, 
-        async (err, decoded) => {
-            if (err) return res.status(403).json({ message: 'Forbidden!' }) // 403 = forbidden
+    res.clearCookie('jwt', { 
+        httpOnly: true, // accessible only by web server 
+        secure: true, // https 
+        sameSite: 'None', // cross-site cookie
+        maxAge: 1 * 24 * 60 * 60 * 1000 // cookie expiry: set to match RT 
+    })
 
-            const foundUser = await User.findOne({ username: decoded.username })
+    const foundUser = await User.findOne({ refreshToken }).exec()
 
-            if (!foundUser) return res.status(401).json({ message: 'Unauthorized!' }) // 401 = unauthorized
+    if (!foundUser) {
+        jwt.verify(
+            refreshToken, 
+            process.env.REFRESH_TOKEN_SECRET, 
+            async (err, decoded) => {
+                if (err) {
+                    return res.sendStatus(403) // 403 = forbidden
+                } else {
+                    const hackedUser = await User.findOne({ username: decoded.username }).exec()
+                    const newRefreshTokenArray = hackedUser.refreshToken.filter(rt => rt !== refreshToken)
+                    hackedUser.refreshToken = [...newRefreshTokenArray]
+                    const saveResult = await hackedUser.save()
 
-            const accessToken = jwt.sign(
-                {
-                    'UserInfo': {
-                        'username': foundUser.username,
-                        'firstName': foundUser.firstName, 
-                        'lastName': foundUser.lastName, 
-                        'roles': foundUser.roles
-                    }
-                }, 
-                process.env.ACCESS_TOKEN_SECRET, 
-                { expiresIn: '20s' }
-            )
+                    return res.sendStatus(403) // 403 = forbidden
+                }
+            }
+        )
+    } else {
+        const newRefreshTokenArray = foundUser.refreshToken.filter(rt => rt !== refreshToken)
 
-            res.json({ accessToken })
-        }
-    )
+        jwt.verify(
+            refreshToken, 
+            process.env.REFRESH_TOKEN_SECRET, 
+            async (err, decoded) => {
+                if (err) {
+                    foundUser.refreshToken = [...newRefreshTokenArray]
+                    const result = await foundUser.save()
+                } 
+
+                if (err || foundUser.username !== decoded.username) {
+                    return res.status(403).json({ message: 'Forbidden!' }) // 403 = forbidden
+                } else {
+
+                }
+    
+                const accessToken = jwt.sign(
+                    {
+                        'UserInfo': {
+                            'username': foundUser.username,
+                            'firstName': foundUser.firstName, 
+                            'lastName': foundUser.lastName, 
+                            'roles': foundUser.roles
+                        }
+                    }, 
+                    process.env.ACCESS_TOKEN_SECRET, 
+                    { expiresIn: '20s' }
+                )
+
+                const newRefreshToken = jwt.sign(
+                    { 'username': foundUser.username }, 
+                    process.env.REFRESH_TOKEN_SECRET, 
+                    { expiresIn: '1d' }
+                )
+
+                foundUser.refreshToken = [...newRefreshTokenArray, newRefreshToken]
+
+                const result = await foundUser.save()
+
+                res.cookie('jwt', newRefreshToken, {
+                    httpOnly: true, // accessible only by web server 
+                    secure: true, // https 
+                    sameSite: 'None', // cross-site cookie
+                    maxAge: 1 * 24 * 60 * 60 * 1000 // cookie expiry: set to match RT 
+                })
+    
+                res.json({ accessToken })
+            }
+        )
+    }
 }
 
 // @desc logout
@@ -128,7 +180,7 @@ const logout = async (req, res) => {
         maxAge: 1 * 24 * 60 * 60 * 1000 // cookie expiry: set to match RT 
     })
 
-    res.json({ message: 'Logout success' })
+    res.json({ message: 'Logout success!' })
 }
 
 module.exports = {
