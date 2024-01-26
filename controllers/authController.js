@@ -57,7 +57,6 @@ const login = async (req, res) => {
             httpOnly: true, // accessible only by web server 
             secure: true, // https 
             sameSite: 'None', // cross-site cookie
-            maxAge: 1 * 24 * 60 * 60 * 1000 // cookie expiry: set to match RT 
         })
     }
 
@@ -89,7 +88,6 @@ const refresh = async (req, res) => {
         httpOnly: true, // accessible only by web server 
         secure: true, // https 
         sameSite: 'None', // cross-site cookie
-        maxAge: 1 * 24 * 60 * 60 * 1000 // cookie expiry: set to match RT 
     })
 
     const foundUser = await User.findOne({ refreshToken }).exec()
@@ -126,40 +124,38 @@ const refresh = async (req, res) => {
                 if (err || foundUser.username !== decoded.username) {
                     return res.status(403).json({ message: 'Forbidden!' }) // 403 = forbidden
                 } else {
+                    const accessToken = jwt.sign(
+                        {
+                            'UserInfo': {
+                                'username': foundUser.username,
+                                'firstName': foundUser.firstName, 
+                                'lastName': foundUser.lastName, 
+                                'roles': foundUser.roles
+                            }
+                        }, 
+                        process.env.ACCESS_TOKEN_SECRET, 
+                        { expiresIn: '20s' }
+                    )
 
+                    const newRefreshToken = jwt.sign(
+                        { 'username': foundUser.username }, 
+                        process.env.REFRESH_TOKEN_SECRET, 
+                        { expiresIn: '1d' }
+                    )
+
+                    foundUser.refreshToken = [...newRefreshTokenArray, newRefreshToken]
+
+                    const result = await foundUser.save()
+
+                    res.cookie('jwt', newRefreshToken, {
+                        httpOnly: true, // accessible only by web server 
+                        secure: true, // https 
+                        sameSite: 'None', // cross-site cookie
+                        maxAge: 1 * 24 * 60 * 60 * 1000 // cookie expiry: set to match RT 
+                    })
+        
+                    res.json({ accessToken })
                 }
-    
-                const accessToken = jwt.sign(
-                    {
-                        'UserInfo': {
-                            'username': foundUser.username,
-                            'firstName': foundUser.firstName, 
-                            'lastName': foundUser.lastName, 
-                            'roles': foundUser.roles
-                        }
-                    }, 
-                    process.env.ACCESS_TOKEN_SECRET, 
-                    { expiresIn: '20s' }
-                )
-
-                const newRefreshToken = jwt.sign(
-                    { 'username': foundUser.username }, 
-                    process.env.REFRESH_TOKEN_SECRET, 
-                    { expiresIn: '1d' }
-                )
-
-                foundUser.refreshToken = [...newRefreshTokenArray, newRefreshToken]
-
-                const result = await foundUser.save()
-
-                res.cookie('jwt', newRefreshToken, {
-                    httpOnly: true, // accessible only by web server 
-                    secure: true, // https 
-                    sameSite: 'None', // cross-site cookie
-                    maxAge: 1 * 24 * 60 * 60 * 1000 // cookie expiry: set to match RT 
-                })
-    
-                res.json({ accessToken })
             }
         )
     }
@@ -182,7 +178,6 @@ const logout = async (req, res) => {
             httpOnly: true, // accessible only by web server 
             secure: true, // https 
             sameSite: 'None', // cross-site cookie
-            maxAge: 1 * 24 * 60 * 60 * 1000 // cookie expiry: set to match RT 
         })
 
         return res.sendStatus(204) // success but no content
@@ -195,7 +190,6 @@ const logout = async (req, res) => {
             httpOnly: true, // accessible only by web server 
             secure: true, // https 
             sameSite: 'None', // cross-site cookie
-            maxAge: 1 * 24 * 60 * 60 * 1000 // cookie expiry: set to match RT 
         })
     
         res.json({ message: 'Logout success!' })
