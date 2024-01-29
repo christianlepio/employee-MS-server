@@ -166,13 +166,13 @@ const refresh = async (req, res) => {
 // @access Public - clear cookie if exists
 const logout = async (req, res) => {
     const cookies = req.cookies
-
+    
     if (!cookies?.jwt) return res.sendStatus(204) // success but no content
 
     const refreshToken = cookies.jwt
 
     const foundUser = await User.findOne({ refreshToken }).exec()
-
+    
     if (!foundUser) {
         res.clearCookie('jwt', { 
             httpOnly: true, // accessible only by web server 
