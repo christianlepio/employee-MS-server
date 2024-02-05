@@ -40,7 +40,20 @@ const createNewUser = async (req, res) => {
     const user = await User.create(userRolesObj)
 
     if (user) { // user was successfully created
-        res.status(201).json({ message: `New user ${username} created!` }) // 201 = created
+        res.status(201).json({ 
+            message: `New user ${username} created!`, 
+            userData: {
+                username: user.username, 
+                firstName: user.firstName, 
+                lastName: user.lastName, 
+                bdate: user.bdate, 
+                roles: user.roles, 
+                active: user.active, 
+                _id: user._id, 
+                __v: user.__v
+            }
+            
+        }) // 201 = created
     } else {
         res.status(400).json({ message: 'Invalid received user data!' }) // 400 = bad request
     }
